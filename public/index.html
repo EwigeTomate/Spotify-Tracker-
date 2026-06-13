@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spotify Listening Tracker</title>
+  <!-- Google Fonts: Inter & Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <!-- Full Screen Login / User Selection Screen -->
+  <div id="login-screen" class="login-screen-overlay hidden">
+    <div class="login-container">
+      <div class="login-header">
+        <div class="app-logo">
+          <i data-lucide="activity" class="logo-icon"></i>
+          <span>Spotify Tracker</span>
+        </div>
+      </div>
+      
+      <div class="login-content">
+        <h1 class="login-title">Wer hört gerade?</h1>
+        <p class="login-subtitle">Wähle dein Profil aus oder verknüpfe ein neues Spotify-Konto.</p>
+        
+        <!-- Grid of Profiles -->
+        <div class="login-profiles-grid" id="login-profiles-grid">
+          <!-- Dynamically populated profiles -->
+        </div>
+
+        <div class="login-actions-row">
+          <a href="/api/auth/login" class="btn btn-primary btn-login-new" id="login-new-btn">
+            <i data-lucide="user-plus"></i> Neues Konto verknüpfen
+          </a>
+        </div>
+      </div>
+
+      <div class="login-footer">
+        <button id="login-go-to-setup" class="btn btn-secondary btn-setup-link">
+          <i data-lucide="settings"></i> API-Einstellungen konfigurieren
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- App Layout -->
+  <div class="app-layout">
+    
+    <!-- Left Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="app-logo">
+          <i data-lucide="activity" class="logo-icon"></i>
+          <span>Spotify Tracker</span>
+        </div>
+      </div>
+      
+      <nav class="sidebar-nav">
+        <ul>
+          <li class="nav-item active" data-target="dashboard">
+            <i data-lucide="home"></i>
+            <span>Startseite</span>
+          </li>
+          <li class="nav-item" data-target="setup">
+            <i data-lucide="settings"></i>
+            <span>Setup &amp; API</span>
+          </li>
+        </ul>
+      </nav>
+
+      <div class="sidebar-divider"></div>
+
+      <!-- Library Section Mock (Matches Spotify Bibliothek look) -->
+      <div class="library-section">
+        <div class="library-header">
+          <i data-lucide="library" class="lib-icon"></i>
+          <span>Deine Bibliothek</span>
+          <button class="btn-lib-add tooltip" title="Feature bald verfügbar"><i data-lucide="plus"></i></button>
+        </div>
+        <div class="library-filters">
+          <span class="lib-pill active">Playlists</span>
+          <span class="lib-pill">Künstler</span>
+          <span class="lib-pill">Alben</span>
+        </div>
+        <div class="library-list">
+          <div class="lib-item" data-target="ai-reports">
+            <div class="lib-art-placeholder ai-glow">
+              <i data-lucide="sparkles" class="ai-icon"></i>
+            </div>
+            <div class="lib-item-info">
+              <h4>AI-Analysen</h4>
+              <p>Gemini • Insights</p>
+            </div>
+          </div>
+          <div class="lib-item" data-target="wrapped">
+            <div class="lib-art-placeholder wrapped-glow">
+              <i data-lucide="gift" class="wrapped-icon"></i>
+            </div>
+            <div class="lib-item-info">
+              <h4>Spotify Wrapped</h4>
+              <p>Story • Jahresrückblick</p>
+            </div>
+          </div>
+          <div class="lib-item" data-target="charts">
+            <div class="lib-art-placeholder playlist-glow">
+              <i data-lucide="heart" class="heart-icon"></i>
+            </div>
+            <div class="lib-item-info">
+              <h4>Lieblingssongs</h4>
+              <p>Playlist • Auto-Sync</p>
+            </div>
+          </div>
+          <div class="lib-item" data-target="history">
+            <div class="lib-art-placeholder grid-glow">
+              <i data-lucide="calendar" class="calendar-icon"></i>
+            </div>
+            <div class="lib-item-info">
+              <h4>Hör-Aktivität 2026</h4>
+              <p>Kalender • Grid</p>
+            </div>
+          </div>
+          <div class="lib-item" data-target="habits">
+            <div class="lib-art-placeholder stats-glow">
+              <i data-lucide="bar-chart-2" class="stats-icon"></i>
+            </div>
+            <div class="lib-item-info">
+              <h4>Tageszeit-Habits</h4>
+              <p>Statistik • Charts</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main View Panel -->
+    <main class="main-view">
+      <!-- Sticky Top Bar -->
+      <header class="top-bar">
+        <div class="topbar-navigation">
+          <button class="nav-arrow" disabled><i data-lucide="chevron-left"></i></button>
+          <button class="nav-arrow" disabled><i data-lucide="chevron-right"></i></button>
+        </div>
+        
+        <div class="topbar-actions">
+          <button id="sync-btn" class="btn btn-secondary tooltip" title="Synchronisiere kürzlich gespielte Titel">
+            <i data-lucide="refresh-cw" id="sync-icon"></i>
+            <span>Sync</span>
+          </button>
+          
+          <!-- Spotify User Profile Widget -->
+          <div class="user-profile-widget" id="user-profile-widget">
+            <div class="profile-pill" id="profile-pill-btn">
+              <img id="user-avatar" src="" alt="Avatar" class="user-avatar hidden">
+              <div id="user-avatar-placeholder" class="avatar-placeholder">
+                <i data-lucide="user" class="placeholder-icon"></i>
+              </div>
+              <span id="user-name">Nicht verbunden</span>
+              <i data-lucide="chevron-down" class="chevron-icon"></i>
+            </div>
+            <!-- Dropdown Menu -->
+            <div class="profile-dropdown hidden" id="profile-dropdown">
+              <div class="dropdown-header">Konto wechseln</div>
+              <div id="users-list-dropdown">
+                <!-- Dynamically listed users -->
+              </div>
+              <div class="dropdown-divider"></div>
+              <a href="/api/auth/login" class="dropdown-item">
+                <i data-lucide="user-plus"></i> Benutzer hinzufügen
+              </a>
+              <button class="dropdown-item" id="export-json-btn">
+                <i data-lucide="download"></i> Daten exportieren (JSON)
+              </button>
+              <a href="https://developer.spotify.com/dashboard" target="_blank" class="dropdown-item">
+                <i data-lucide="external-link"></i> Developer Panel
+              </a>
+              <div class="dropdown-divider"></div>
+              <button class="dropdown-item logout-action" id="logout-btn">
+                <i data-lucide="log-out"></i> Konto abmelden
+              </button>
+              <button class="dropdown-item" id="delete-account-btn" style="color: var(--sp-green); hover: color: var(--sp-green-hover);">
+                <i data-lucide="trash-2"></i> Sync für dieses Konto löschen
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- Scrollable Container -->
+      <div class="scroll-container">
+        
+        <!-- Dashboard View (Startseite) -->
+        <div class="view-content active" id="dashboard-view">
+          
+          <!-- Hero Banner (Standard Spotify styling) -->
+          <section class="hero-banner">
+            <div class="hero-bg-glow" id="hero-dynamic-glow"></div>
+            <div class="hero-text">
+              <span class="badge-tag">DATEN-ANALYTICS</span>
+              <h2>Startseite</h2>
+              <p>Willkommen bei deinem Spotify Tracker. Unten siehst du deine aktuellen Statistiken und Kürzlich gehört.</p>
+            </div>
+          </section>
+
+          <!-- Main Layout Grid -->
+          <div class="dashboard-grid">
+            
+            <!-- Row 1: Quick Stats Summary Cards -->
+            <section class="stats-row">
+              <div class="stat-card">
+                <span class="stat-label">Hörzeit insgesamt</span>
+                <span class="stat-value" id="stat-total-duration">0 Std.</span>
+                <span class="stat-subtext" id="stat-total-days-sub">entspricht ca. 0 Tagen</span>
+              </div>
+              <div class="stat-card">
+                <span class="stat-label">Titel gesamt</span>
+                <span class="stat-value" id="stat-total-plays">0</span>
+                <span class="stat-subtext">Registrierte Wiedergaben</span>
+              </div>
+              <div class="stat-card">
+                <span class="stat-label">Durchschnitt / Tag</span>
+                <span class="stat-value" id="stat-avg-plays">0</span>
+                <span class="stat-subtext">Songs pro Tag</span>
+              </div>
+              <div class="stat-card">
+                <span class="stat-label">Aktivste Stunde</span>
+                <span class="stat-value" id="stat-peak-hour">-</span>
+                <span class="stat-subtext">Peak-Uhrzeit</span>
+              </div>
+            </section>
+
+            <!-- Zuletzt gehört section -->
+            <section class="recent-preview-section">
+              <div class="section-title-group">
+                <h3>Kürzlich gehört</h3>
+                <p class="subtitle">Deine letzten Wiedergaben im Schnellzugriff</p>
+              </div>
+              <div class="recent-preview-grid" id="recent-preview-grid">
+                <!-- 6 recently played cards dynamically loaded -->
+              </div>
+            </section>
+
+          </div>
+        </div>
+
+        <!-- Charts View (Lieblingssongs) -->
+        <div class="view-content" id="charts-view">
+          
+          <section class="hero-banner mini-banner">
+            <div class="hero-bg-glow" style="background: linear-gradient(180deg, #311042 0%, #121212 100%); opacity: 0.5;"></div>
+            <div class="hero-text">
+              <span class="badge-tag">HIGHLIGHTS</span>
+              <h2>Lieblingssongs</h2>
+              <p>Deine am häufigsten gehörten Titel und Künstler auf Spotify</p>
+            </div>
+          </section>
+
+          <div class="dashboard-grid">
+            <section class="insights-section">
+              <div class="insights-header">
+                <h3>Deine Top-Charts</h3>
+                <div class="time-range-tabs">
+                  <button class="range-tab" data-range="7d">7 Tage</button>
+                  <button class="range-tab active" data-range="30d">30 Tage</button>
+                  <button class="range-tab" data-range="90d">90 Tage</button>
+                  <button class="range-tab" data-range="all">Alles</button>
+                </div>
+              </div>
+
+              <div class="charts-grid">
+                <!-- Top Tracks -->
+                <div class="chart-card">
+                  <h4>Top Songs</h4>
+                  <div class="chart-list" id="top-tracks-list">
+                    <!-- Dynamically loaded -->
+                  </div>
+                </div>
+
+                <!-- Top Artists -->
+                <div class="chart-card">
+                  <h4>Top Künstler</h4>
+                  <div class="chart-list" id="top-artists-list">
+                    <!-- Dynamically loaded -->
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <!-- History View (Hör-Aktivität) -->
+        <div class="view-content" id="history-view">
+          
+          <section class="hero-banner mini-banner">
+            <div class="hero-bg-glow" style="background: linear-gradient(180deg, #1e1b4b 0%, #121212 100%); opacity: 0.5;"></div>
+            <div class="hero-text">
+              <span class="badge-tag">KALENDER</span>
+              <h2>Hör-Aktivität 2026</h2>
+              <p>Dein Hörtagebuch und die statistische Verteilung deiner Musik-Sessions</p>
+            </div>
+          </section>
+
+          <div class="dashboard-grid">
+            <!-- Row 2: GitHub-style Activity Calendar Grid -->
+            <section class="calendar-section">
+              <div class="section-title-group">
+                <h3>Aktivitätskalender</h3>
+                <p class="subtitle">Verteilung deiner Songs über die letzten 365 Tage</p>
+              </div>
+              <div class="calendar-card">
+                <div class="activity-calendar-wrapper">
+                  <div class="months-labels" id="months-labels">
+                    <!-- Dynamically populated months (aligned to columns) -->
+                  </div>
+                  <div class="calendar-grid-container">
+                    <div class="days-labels">
+                      <span>Mon</span>
+                      <span>Wed</span>
+                      <span>Fri</span>
+                    </div>
+                    <div class="activity-grid" id="activity-grid">
+                      <!-- 371 squares dynamically created -->
+                    </div>
+                  </div>
+                  <div class="calendar-footer">
+                    <span class="activity-info-summary" id="activity-summary-text">Fahre über ein Quadrat für Details</span>
+                    <div class="legend">
+                      <span>Weniger</span>
+                      <span class="legend-box lvl-0"></span>
+                      <span class="legend-box lvl-1"></span>
+                      <span class="legend-box lvl-2"></span>
+                      <span class="legend-box lvl-3"></span>
+                      <span class="legend-box lvl-4"></span>
+                      <span>Mehr</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Selected Day Details Panel (collapsible) -->
+              <div class="day-details-panel hidden" id="day-details-panel">
+                <div class="panel-header">
+                  <div>
+                    <h3 id="details-date-title">12. Oktober 2026</h3>
+                    <p class="subtitle" id="details-date-subtitle">15 Songs gespielt (45 Minuten)</p>
+                  </div>
+                  <button class="btn-icon-close" id="close-details-btn">
+                    <i data-lucide="x"></i>
+                  </button>
+                </div>
+                <div class="day-tracks-list" id="day-tracks-list">
+                  <!-- Dynamically populated plays -->
+                </div>
+              </div>
+            </section>
+
+            <!-- Complete history section with pagination -->
+            <section class="full-history-section">
+              <div class="section-title-group">
+                <h3>Kompletter Verlauf</h3>
+                <p class="subtitle">Alle deine registrierten Songs in chronologischer Reihenfolge</p>
+              </div>
+              <div class="history-table-card">
+                <div class="history-table-header">
+                  <span class="col-num">#</span>
+                  <span class="col-title">Titel</span>
+                  <span class="col-album">Album</span>
+                  <span class="col-time">Gehört am</span>
+                  <span class="col-dur"><i data-lucide="clock"></i></span>
+                </div>
+                <div class="history-table-body" id="full-history-list">
+                  <!-- Dynamically populated rows -->
+                </div>
+                <div class="history-pagination">
+                  <button class="btn btn-secondary btn-pagination" id="history-prev-btn" disabled>
+                    <i data-lucide="chevron-left"></i> Vorherige
+                  </button>
+                  <span id="history-page-info" class="page-info">Seite 1</span>
+                  <button class="btn btn-secondary btn-pagination" id="history-next-btn">
+                    Nächste <i data-lucide="chevron-right"></i>
+                  </button>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <!-- Habits View (Tageszeit-Habits) -->
+        <div class="view-content" id="habits-view">
+          
+          <section class="hero-banner mini-banner">
+            <div class="hero-bg-glow" style="background: linear-gradient(180deg, #701a75 0%, #121212 100%); opacity: 0.5;"></div>
+            <div class="hero-text">
+              <span class="badge-tag">STATISTIK</span>
+              <h2>Tageszeit-Habits</h2>
+              <p>Wann du über den Tag verteilt am meisten Musik hörst</p>
+            </div>
+          </section>
+
+          <div class="dashboard-grid">
+            <div class="chart-card habits-card">
+              <h4>Höraktivität nach Uhrzeit</h4>
+              <p class="subtitle">Wann hörst du am liebsten Musik? (Aufgeteilt auf die 24 Stunden des Tages)</p>
+              <div class="hourly-chart" id="hourly-chart">
+                <!-- 24 bars dynamically generated -->
+              </div>
+              <div class="hourly-labels">
+                <span>00:00</span>
+                <span>06:00</span>
+                <span>12:00</span>
+                <span>18:00</span>
+                <span>23:00</span>
+              </div>
+              
+              <div class="habits-summary-box" style="margin-top: 2rem; background-color: var(--sp-light-grey); padding: 1.25rem; border-radius: 12px; border-left: 4px solid var(--sp-green);">
+                <h5 style="margin-bottom: 0.5rem; font-weight: 700; font-family: var(--font-display); font-size: 1rem;">Dein Hörverhalten analysiert</h5>
+                <p id="habits-summary-desc" style="font-size: 0.85rem; color: var(--sp-text-grey); line-height: 1.6;">Lade Analyse...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Setup / Settings View -->
+        <div class="view-content" id="setup-view">
+          <div class="setup-container">
+            <div class="setup-card">
+              <div class="setup-header">
+                <i data-lucide="key" class="setup-icon"></i>
+                <h2>Spotify Developer API Setup</h2>
+                <p>Dieser Tracker läuft lokal auf deinem Rechner. Um deine Spotify-Spieldaten abzufragen, musst du deine eigene Client ID und dein Secret hinterlegen.</p>
+              </div>
+
+              <div class="setup-steps">
+                <div class="step-box">
+                  <span class="step-num">1</span>
+                  <div class="step-info">
+                    <h5>App registrieren</h5>
+                    <p>Öffne das <a href="https://developer.spotify.com/dashboard" target="_blank" class="accent-link">Spotify Developer Dashboard</a>, logge dich ein und klicke auf "Create app".</p>
+                  </div>
+                </div>
+                <div class="step-box">
+                  <span class="step-num">2</span>
+                  <div class="step-info">
+                    <h5>Redirect URI eintragen</h5>
+                    <p>Trage in den App-Einstellungen unter <strong>Redirect URIs</strong> die folgende URL ein:</p>
+                    <div class="code-box-wrapper">
+                      <span id="redirect-uri-display">http://127.0.0.1:3000/api/auth/callback</span>
+                      <button class="btn-copy" id="copy-redirect-btn" title="In Zwischenablage kopieren">
+                        <i data-lucide="copy"></i>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <form id="config-form" class="spotify-config-form">
+                <div class="form-field">
+                  <label for="client_id">Spotify Client ID</label>
+                  <input type="text" id="client_id" placeholder="Client ID von Spotify einfügen..." required>
+                </div>
+                <div class="form-field">
+                  <label for="client_secret">Spotify Client Secret</label>
+                  <input type="password" id="client_secret" placeholder="Client Secret von Spotify einfügen..." required>
+                </div>
+                <button type="submit" class="btn btn-spotify-save" id="save-config-btn">
+                  <i data-lucide="save"></i> Einstellungen speichern
+                </button>
+              </form>
+
+              <div class="setup-divider"></div>
+
+              <div class="auth-section">
+                <h5>3. Spotify Account verbinden</h5>
+                <p>Klicke unten, um dich bei Spotify einzuloggen und das automatische Musik-Tracking freizugeben.</p>
+                <a href="/api/auth/login" id="login-spotify-btn" class="btn btn-spotify-connect disabled">
+                  <i data-lucide="unlock"></i> Spotify-Account verknüpfen
+                </a>
+              </div>
+            </div>
+        </div>
+
+        <!-- AI Reports View (AI-Analysen) -->
+        <div class="view-content" id="ai-reports-view">
+          
+          <section class="hero-banner mini-banner">
+            <div class="hero-bg-glow" style="background: linear-gradient(180deg, #022329 0%, #121212 100%); opacity: 0.5;"></div>
+            <div class="hero-text">
+              <span class="badge-tag">ARTIFICIAL INTELLIGENCE</span>
+              <h2>Gemini AI-Analysen</h2>
+              <p>Generiere intelligente Berichte über deine Hörgewohnheiten mit Gemini 1.5 Flash</p>
+            </div>
+          </section>
+
+          <div class="dashboard-grid">
+            
+            <!-- Gemini Settings & Generation Controls -->
+            <section class="ai-controls-section">
+              <div class="ai-card">
+                <h3>Gemini API Key einrichten</h3>
+                <p class="subtitle">Gib deinen kostenlosen API Key aus Google AI Studio ein, um die Analysen freizuschalten.</p>
+                <div class="form-field" style="margin-top: 1rem;">
+                  <input type="password" id="gemini-api-key-input" placeholder="AI Studio API Key (AIzaSy...)" style="width: 100%;">
+                </div>
+                <button class="btn btn-secondary" id="save-gemini-key-btn" style="margin-top: 0.5rem; width: 100%;">
+                  <i data-lucide="key"></i> API Key speichern
+                </button>
+              </div>
+
+              <div class="ai-card" style="margin-top: 1.5rem;">
+                <h3>Berichte generieren</h3>
+                <p class="subtitle">Lasse Gemini deine Spotify-Statistiken, Lieblingslieder und zeitlichen Habits analysieren.</p>
+                <div class="ai-btn-group" style="display: flex; gap: 0.75rem; flex-direction: column; margin-top: 1rem;">
+                  <button class="btn btn-primary" id="generate-daily-btn">
+                    <i data-lucide="sparkles"></i> Täglichen Bericht generieren
+                  </button>
+                  <button class="btn btn-secondary" id="generate-wrapped-btn">
+                    <i data-lucide="gift"></i> Wrapped-Bericht generieren
+                  </button>
+                </div>
+              </div>
+
+              <!-- List of Saved Reports -->
+              <div class="ai-card" style="margin-top: 1.5rem;">
+                <h3>Gespeicherte Berichte</h3>
+                <div class="reports-history-list" id="reports-history-list">
+                  <!-- Dynamically populated reports -->
+                  <p class="no-data">Keine Berichte generiert</p>
+                </div>
+              </div>
+            </section>
+
+            <!-- Report Detail Output -->
+            <section class="ai-output-section">
+              <div class="report-detail-card" id="report-detail-card">
+                <div class="report-detail-header">
+                  <div class="report-meta">
+                    <span class="report-badge" id="active-report-badge">ANALYSE</span>
+                    <h3 id="active-report-title">Kein Bericht ausgewählt</h3>
+                    <p class="subtitle" id="active-report-date">Wähle einen Bericht links aus oder erstelle einen neuen.</p>
+                  </div>
+                  <div class="report-personality" id="active-report-personality-container" style="display: none;">
+                    <span class="personality-label">Musik-Persönlichkeit:</span>
+                    <span class="personality-val" id="active-report-personality">Nächtlicher Nostalgiker</span>
+                  </div>
+                </div>
+                <div class="report-content-body markdown-content" id="report-content-body">
+                  <div class="ai-placeholder-msg">
+                    <i data-lucide="bot" style="width: 48px; height: 48px; color: var(--sp-green); opacity: 0.8; margin-bottom: 1rem;"></i>
+                    <p>Hier wird deine KI-Analyse geladen. Trage oben deinen Gemini API-Key ein und klicke auf "Täglichen Bericht generieren".</p>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+          </div>
+        </div>
+
+      </div>
+    </main>
+
+    <!-- Persistent Bottom Spotify Player Bar (Persistent Now Playing) -->
+    <footer class="now-playing-bar" id="now-playing-bar">
+      <!-- Left: Track Details -->
+      <div class="bar-left">
+        <div class="bar-track-art-wrapper">
+          <img id="track-art" src="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=100&auto=format&fit=crop" alt="Cover Art">
+          <!-- Small vinyl peeking out when playing -->
+          <div class="small-vinyl" id="vinyl-disc">
+            <div class="grooves"></div>
+          </div>
+        </div>
+        <div class="bar-track-text">
+          <h4 id="track-title" class="track-marquee">Nichts abgespielt</h4>
+          <p id="track-artist">Keine Wiedergabe aktiv</p>
+        </div>
+        <button class="btn-heart-mock tooltip" title="Zu Lieblingssongs hinzufügen (Mock)"><i data-lucide="heart"></i></button>
+      </div>
+
+      <!-- Center: Playback Controls & Progress -->
+      <div class="bar-center">
+        <div class="playback-controls">
+          <button class="btn-control tooltip" title="Shuffle" id="shuffle-btn"><i data-lucide="shuffle" id="shuffle-icon"></i></button>
+          <button class="btn-control" id="prev-btn" disabled><i data-lucide="skip-back"></i></button>
+          <button class="btn-play-pause" id="play-btn"><i data-lucide="play" id="play-icon"></i></button>
+          <button class="btn-control" id="next-btn" disabled><i data-lucide="skip-forward"></i></button>
+          <button class="btn-control tooltip" title="Wiederholen" id="repeat-btn"><i data-lucide="repeat" id="repeat-icon"></i></button>
+        </div>
+        <div class="progress-bar-area">
+          <span class="time-label" id="current-time">0:00</span>
+          <div class="playback-progress-track">
+            <div class="playback-progress-fill" id="player-progress"></div>
+          </div>
+          <span class="time-label" id="total-time">0:00</span>
+        </div>
+      </div>
+
+      <!-- Right: Utility Controls (Device & Volume) -->
+      <div class="bar-right">
+        <div class="device-pill" id="device-pill">
+          <i data-lucide="speaker" id="device-icon"></i>
+          <span id="device-name">Kein Gerät</span>
+        </div>
+        <span class="status-badge" id="player-status-badge">Offline</span>
+        <div class="volume-bar-wrapper">
+          <i data-lucide="volume-2" class="vol-icon"></i>
+          <div class="vol-track">
+            <div class="vol-fill" style="width: 70%;"></div>
+          </div>
+        </div>
+      </div>
+    </footer>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast hidden">
+      <span id="toast-message">Meldung...</span>
+    </div>
+
+  </div>
+
+  <!-- Full Screen Spotify Wrapped Overlay -->
+  <div id="wrapped-view" class="wrapped-overlay hidden">
+    <!-- Close Button -->
+    <button class="btn-wrapped-close" id="close-wrapped-btn">
+      <i data-lucide="x"></i>
+    </button>
+
+    <!-- Top Story Progress Bars -->
+    <div class="wrapped-progress-container" id="wrapped-progress-container">
+      <!-- Dynamically filled with .wrapped-progress-bar divs -->
+    </div>
+
+    <!-- Wrapped Slide Container -->
+    <div class="wrapped-slides-wrapper" id="wrapped-slides-wrapper">
+      
+      <!-- Slide 1: Intro -->
+      <div class="wrapped-slide active" id="wrapped-slide-1" style="background: radial-gradient(circle, #0f172a 0%, #000000 100%);">
+        <div class="wrapped-slide-content">
+          <div class="wrapped-year-badge">2026</div>
+          <h1 class="wrapped-title-large">Dein musikalischer Rückblick</h1>
+          <p class="wrapped-subtitle-large">Bereit für eine Reise durch deine Spotify-Höraktivität? Wir haben deine Daten unter die Lupe genommen.</p>
+          <div class="wrapped-tap-indicator">Tippe auf den Bildschirm, um fortzufahren</div>
+        </div>
+      </div>
+
+      <!-- Slide 2: Duration Stats -->
+      <div class="wrapped-slide" id="wrapped-slide-2" style="background: radial-gradient(circle, #311042 0%, #000000 100%);">
+        <div class="wrapped-slide-content">
+          <span class="slide-tag">HÖRZEIT</span>
+          <h2 class="slide-heading">Du hast dieses Jahr gelebt... in Musik.</h2>
+          <div class="big-stat-display">
+            <span class="big-stat-number" id="wrapped-duration-val">0</span>
+            <span class="big-stat-unit">Minuten</span>
+          </div>
+          <p class="slide-description" id="wrapped-duration-desc">Das ist deine registrierte Hörzeit. Deine Ohren waren fleißig!</p>
+        </div>
+      </div>
+
+      <!-- Slide 3: Top Songs -->
+      <div class="wrapped-slide" id="wrapped-slide-3" style="background: radial-gradient(circle, #022c22 0%, #000000 100%);">
+        <div class="wrapped-slide-content">
+          <span class="slide-tag">TOP SONGS</span>
+          <h2 class="slide-heading">Dieser Song lief bei dir am häufigsten.</h2>
+          <div class="wrapped-top-song-card" id="wrapped-top-song-card-element">
+            <img id="wrapped-top-song-img" src="" alt="Album Cover" class="wrapped-song-cover">
+            <div class="wrapped-song-info">
+              <h3 id="wrapped-top-song-title">Keine Daten</h3>
+              <p id="wrapped-top-song-artists">Keine Wiedergaben registriert</p>
+            </div>
+          </div>
+          <div class="wrapped-list-items" id="wrapped-top-songs-list">
+            <!-- Dynamic elements 2 to 5 -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Slide 4: Top Artists -->
+      <div class="wrapped-slide" id="wrapped-slide-4" style="background: radial-gradient(circle, #5b21b6 0%, #000000 100%);">
+        <div class="wrapped-slide-content">
+          <span class="slide-tag">TOP KÜNSTLER</span>
+          <h2 class="slide-heading">Deine absolute Nummer 1 dieses Jahr.</h2>
+          <div class="wrapped-top-artist-card" id="wrapped-top-artist-card-element">
+            <div class="wrapped-artist-avatar-wrapper">
+              <img id="wrapped-top-artist-img" src="" alt="Artist Image" class="wrapped-artist-avatar">
+            </div>
+            <h3 id="wrapped-top-artist-name">Keine Daten</h3>
+          </div>
+          <div class="wrapped-list-items" id="wrapped-top-artists-list">
+            <!-- Dynamic artists 2 to 5 -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Slide 5: Peak Hours -->
+      <div class="wrapped-slide" id="wrapped-slide-5" style="background: radial-gradient(circle, #1e1b4b 0%, #000000 100%);">
+        <div class="wrapped-slide-content">
+          <span class="slide-tag">HÖR-RHYTHMUS</span>
+          <h2 class="slide-heading">Wann du im Tunnel bist.</h2>
+          <div class="wrapped-peak-hour-display">
+            <i data-lucide="moon" class="peak-icon" id="wrapped-peak-icon"></i>
+            <span class="peak-time" id="wrapped-peak-time-val">22:00 Uhr</span>
+          </div>
+          <p class="slide-description" id="wrapped-peak-desc">Zu dieser Uhrzeit liefen bei dir die meisten Songs.</p>
+        </div>
+      </div>
+
+      <!-- Slide 6: AI Music Personality -->
+      <div class="wrapped-slide" id="wrapped-slide-6" style="background: radial-gradient(circle, #701a75 0%, #000000 100%);">
+        <div class="wrapped-slide-content">
+          <span class="slide-tag">KI ANALYSE</span>
+          <h2 class="slide-heading">Deine musikalische Persönlichkeit ist...</h2>
+          <div class="personality-card-wrapped">
+            <div class="personality-glow-box">
+              <i data-lucide="sparkles" class="sparkle-icon"></i>
+              <h3 id="wrapped-personality-title">Koffein-Kopfnicker</h3>
+            </div>
+            <p class="personality-description" id="wrapped-personality-desc">Du liebst antreibende Beats und energetische Sounds, die dich durch den Tag peitschen. Kaum ein Lied vergeht, ohne dass du im Takt nickst.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Slide 7: Shareable Summary -->
+      <div class="wrapped-slide" id="wrapped-slide-7" style="background: radial-gradient(circle, #1e293b 0%, #000000 100%);">
+        <div class="wrapped-slide-content wrapped-summary-slide">
+          <div class="wrapped-summary-card" id="wrapped-summary-share-card">
+            <div class="summary-card-header">
+              <div class="summary-logo">
+                <i data-lucide="activity" class="logo-icon"></i>
+                <span>Spotify Tracker Wrapped</span>
+              </div>
+              <div class="summary-year">2026</div>
+            </div>
+            
+            <div class="summary-card-grid">
+              <div class="summary-grid-left">
+                <div class="summary-stat-item">
+                  <span class="summary-stat-lbl">Hörzeit</span>
+                  <span class="summary-stat-val" id="wrapped-sum-time">0 Min</span>
+                </div>
+                <div class="summary-stat-item">
+                  <span class="summary-stat-lbl">Top Song</span>
+                  <span class="summary-stat-val" id="wrapped-sum-song">Keine Daten</span>
+                </div>
+                <div class="summary-stat-item">
+                  <span class="summary-stat-lbl">Top Künstler</span>
+                  <span class="summary-stat-val" id="wrapped-sum-artist">Keine Daten</span>
+                </div>
+              </div>
+              
+              <div class="summary-grid-right">
+                <div class="summary-stat-item">
+                  <span class="summary-stat-lbl">Persönlichkeit</span>
+                  <span class="summary-stat-val font-accent" id="wrapped-sum-personality">Unbekannt</span>
+                </div>
+                <div class="summary-stat-item">
+                  <span class="summary-stat-lbl">Hör-Typ</span>
+                  <span class="summary-stat-val" id="wrapped-sum-peak">-</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="wrapped-actions">
+            <button class="btn btn-primary" id="wrapped-share-btn">
+              <i data-lucide="share-2"></i> Teilen / Screenshot
+            </button>
+            <button class="btn btn-secondary" id="wrapped-restart-btn">
+              <i data-lucide="rotate-ccw"></i> Noch einmal ansehen
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Navigation Overlay (left/right invisible tap zones) -->
+    <div class="wrapped-nav-left" id="wrapped-nav-left"></div>
+    <div class="wrapped-nav-right" id="wrapped-nav-right"></div>
+  </div>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>

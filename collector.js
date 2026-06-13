@@ -1,0 +1,195 @@
+const db = require('./db');
+const spotify = require('./spotify');
+
+let isCollecting = false;
+let collectorInterval = null;
+let playbackPollerInterval = null;
+
+// In-memory cache to throttle database writes for detailed active logging
+const userPlaybackCache = {};
+
+async function collectHistoryForUser(userId) {
+  try {
+    console.log(`[Collector] Checking recently played for user: ${userId}`);
+    const recentPlays = await spotify.getRecentlyPlayed(userId);
+    
+    console.log(`[Collector] Found ${recentPlays.length} recent plays for user ${userId}. Saving to DB...`);
+    
+    let savedCount = 0;
+    for (const item of recentPlays) {
+      // 1. Save track info
+      await db.saveTrack(item.track);
+      
+      // 2. Save play history entry
+      const result = await db.savePlay(item.played_at, userId, item.track.spotify_id, item.track.duration_ms);
+      if (result.changes > 0) {
+        savedCount++;
+      }
+    }
+
+    if (savedCount > 0) {
+      console.log(`[Collector] Logged ${savedCount} new tracks for user ${userId}.`);
+    }
+  } catch (err) {
+    console.error(`[Collector] Error collecting history for user ${userId}:`, err.message);
+  }
+}
+
+async function collectHistory() {
+  if (isCollecting) return;
+  isCollecting = true;
+
+  try {
+    const users = await db.getUsers();
+    
+    if (users.length === 0) {
+      // Check if fallback single user is configured
+      const creds = await spotify.getCredentials();
+      if (creds.refresh_token) {
+        await collectHistoryForUser('default_user');
+      } else {
+        console.log('[Collector] No users configured. Skipping history collection...');
+      }
+    } else {
+      for (const user of users) {
+        if (user.refresh_token) {
+          await collectHistoryForUser(user.spotify_user_id);
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[Collector] Error in background collector:', err.message);
+  } finally {
+    isCollecting = false;
+  }
+}
+
+// Active playback poller: loops every 30 seconds to log detailed playback metrics
+async function pollActivePlaybackForUser(userId) {
+  try {
+    const currentlyPlaying = await spotify.getCurrentlyPlaying(userId);
+    
+    if (!currentlyPlaying || !currentlyPlaying.is_playing || !currentlyPlaying.track) {
+      // User is not playing anything
+      if (userPlaybackCache[userId]) {
+        userPlaybackCache[userId].is_playing = false;
+      }
+      return;
+    }
+
+    const track = currentlyPlaying.track;
+    const device = currentlyPlaying.device;
+    
+    const currentSongId = track.spotify_id;
+    const currentDeviceName = device ? device.name : 'Unknown Device';
+    const currentDeviceType = device ? device.type : 'Unknown';
+    const currentVolume = device ? device.volume_percent : 50;
+    
+    let shouldLog = false;
+    const cache = userPlaybackCache[userId];
+    
+    if (!cache) {
+      // First time we detect playback
+      shouldLog = true;
+    } else {
+      // Check for changes that merit a new log snapshot
+      const songChanged = cache.spotify_id !== currentSongId;
+      const deviceChanged = cache.device_name !== currentDeviceName;
+      const volumeChanged = Math.abs(cache.volume_percent - currentVolume) >= 3; // log volume changes of 3% or more to reduce spam
+      const resumedPlay = !cache.is_playing;
+      const timeElapsedLimit = (Date.now() - cache.last_log_time) > 10 * 60 * 1000; // Force log every 10 minutes of continuous playback
+
+      if (songChanged || deviceChanged || volumeChanged || resumedPlay || timeElapsedLimit) {
+        shouldLog = true;
+      }
+    }
+
+    if (shouldLog) {
+      console.log(`[Collector] Logging detailed playback for ${userId}: ${track.title} on ${currentDeviceName} (Vol: ${currentVolume}%)`);
+      
+      // Save track metadata first to satisfy foreign key constraints
+      await db.saveTrack(track);
+      
+      // Save detailed log snapshot
+      await db.saveDetailedPlaybackLog({
+        spotify_user_id: userId,
+        spotify_id: currentSongId,
+        played_at: new Date().toISOString(),
+        device_name: currentDeviceName,
+        device_type: currentDeviceType,
+        volume_percent: currentVolume,
+        progress_ms: currentlyPlaying.progress_ms || 0,
+        duration_ms: currentlyPlaying.duration_ms || 0,
+        is_podcast: track.is_podcast ? 1 : 0
+      });
+
+      // Update cache
+      userPlaybackCache[userId] = {
+        spotify_id: currentSongId,
+        is_playing: true,
+        device_name: currentDeviceName,
+        volume_percent: currentVolume,
+        last_log_time: Date.now()
+      };
+    }
+  } catch (err) {
+    // Silently capture error to prevent poller from crashing
+    console.error(`[Collector] Active poller error for user ${userId}:`, err.message);
+  }
+}
+
+async function pollActivePlayback() {
+  try {
+    const users = await db.getUsers();
+    if (users.length === 0) {
+      const creds = await spotify.getCredentials();
+      if (creds.refresh_token) {
+        await pollActivePlaybackForUser('default_user');
+      }
+    } else {
+      for (const user of users) {
+        if (user.refresh_token) {
+          await pollActivePlaybackForUser(user.spotify_user_id);
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[Collector] Error in active playback poller loop:', err.message);
+  }
+}
+
+function startCollector(intervalMinutes = 5) {
+  if (collectorInterval) {
+    clearInterval(collectorInterval);
+  }
+  if (playbackPollerInterval) {
+    clearInterval(playbackPollerInterval);
+  }
+
+  console.log(`[Collector] Starting background collector (polling recently-played every ${intervalMinutes} minutes)...`);
+  collectHistory();
+  collectorInterval = setInterval(collectHistory, intervalMinutes * 60 * 1000);
+
+  console.log(`[Collector] Starting active playback poller (polling player state every 30 seconds)...`);
+  pollActivePlayback();
+  playbackPollerInterval = setInterval(pollActivePlayback, 30 * 1000);
+}
+
+function stopCollector() {
+  if (collectorInterval) {
+    clearInterval(collectorInterval);
+    collectorInterval = null;
+    console.log('[Collector] History collector stopped.');
+  }
+  if (playbackPollerInterval) {
+    clearInterval(playbackPollerInterval);
+    playbackPollerInterval = null;
+    console.log('[Collector] Active playback poller stopped.');
+  }
+}
+
+module.exports = {
+  startCollector,
+  stopCollector,
+  triggerSync: collectHistory
+};
