@@ -3,3 +3,5 @@ node_modules/
 spotify_tracker.db
 *.log
 .DS_Store
+.gemini/
+bilde/
