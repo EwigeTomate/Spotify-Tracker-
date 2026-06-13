@@ -4,35 +4,43 @@ A self-hosted, multi-user web application to track, analyze, and visualize your 
 
 ---
 
-## 📸 Screenshots
+## 📸 Screenshots (Vorschau)
 
-Here is a preview of the interface and features:
+Here is a preview of the interface and features using your screenshots:
 
-### 1. Main Dashboard & Activity Grid
-Displays quick statistics (total hours, plays, daily averages), recently played items, and a GitHub-style listening calendar.
-![Dashboard & Activity Grid](images/media__1781377947774.png)
+### 1. Login-Portal ("Wer hört gerade?")
+A sleek, Netflix-style profile selection screen that manages access for multiple registered profiles.
+![Wer hört gerade Portal](bilde/Screenshot%202026-06-13%20215405.png)
 
-### 2. Full-Screen Spotify Wrapped
-An interactive slides presentation recapping your musical year with animated progress bars, top songs/artists, and your AI Music Personality.
-![Spotify Wrapped Presentation](images/media__1781378361739.png)
+### 2. Main Dashboard & Telemetry Stats
+Visualizes quick statistics (total hours, plays, daily averages) and recently played tracks.
+![Dashboard & activity statistics](bilde/Screenshot%202026-06-13%20215325.png)
 
-### 3. Gemini AI Reports & Insights
-Generate detailed summaries and humorous personality analysis of your music taste with Gemini 1.5 Flash.
-![AI Reports & Gemini Setup](images/media__1781378347250.png)
+### 3. Top-Charts & Zeitfilter
+Displays your most played tracks and artists with interactive time filters (7 days, 30 days, 90 days, All time).
+![Top Charts](bilde/Screenshot%202026-06-13%20215354.png)
 
-### 4. Listening Habits & Peak Hours
-Analyze your listening habits based on 24-hour quadrants (Night, Morning, Afternoon, Evening).
-![Listening Habits](images/media__1781377486393.png)
+### 4. Gemini AI-Analysen
+Connects with Google Gemini 1.5 Flash using your free AI Studio API Key to generate daily listener habits and music personality analysis.
+![AI Reports & Gemini Setup](bilde/Screenshot%202026-06-13%20215416.png)
 
-### 5. Persistent Telemetry Player
-Tracks currently playing tracks and podcasts, showing active volume, device name, and progress timers.
-![Persistent Player Telemetry](images/media__1781378845587.png)
+### 5. Spotify Wrapped Slideshow
+An immersive, interactive slide deck story summarizing your listening highlights and custom AI personality.
+![Spotify Wrapped Presentation](bilde/Screenshot%202026-06-13%20215434.png)
+
+### 6. Konto wechseln Dropdown
+Switch between different logged-in profiles instantly or export your full listening history in JSON format.
+![Konto wechseln Dropdown](bilde/Screenshot%202026-06-13%20215426.png)
+
+### 7. Verbindungs-Status
+View the current sync state and verify player integration.
+![Verbindungs-Status](bilde/Screenshot%202026-06-13%20212723.png)
 
 ---
 
 ## 🚀 Key Features
 
-*   **Multi-User Portal**: Sleek "Wer hört gerade?" profile selection screen and top-bar account switcher. Multiple users can concurrently connect accounts.
+*   **Multi-User Portal**: Sleek profile selection screen and top-bar account switcher. Multiple users can concurrently connect accounts.
 *   **Active Telemetry Logging**: Background poller records volume, device names, device types, and playback progress every 30 seconds.
 *   **Podcast & Video-Podcast Support**: Correctly matches episode details and artwork using custom Spotify Web API fallbacks.
 *   **GitHub-Style Activity Calendar**: Interactive 365-day grid visualizing historical playback volume with tooltips and day-by-day track listings.
